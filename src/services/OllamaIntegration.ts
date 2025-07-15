@@ -47,14 +47,15 @@ export class OllamaIntegration {
 
   async checkConnection(): Promise<boolean> {
     try {
+      console.log('[OllamaIntegration] Checking Ollama connection...');
       const response = await fetch(`${this.baseUrl}/api/tags`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(30000), // 30s timeout
       });
+      console.log('[OllamaIntegration] Ollama connection response:', response.status);
       return response.ok;
     } catch (error) {
-      // Silently handle connection failures - this is expected when Ollama isn't running
-      console.log('Ollama not available - running in basic mode');
+      console.error('[OllamaIntegration] Ollama not available - running in basic mode', error);
       return false;
     }
   }
@@ -119,6 +120,7 @@ export class OllamaIntegration {
 
   async generateResponse(prompt: string, model?: string, options?: any): Promise<string> {
     try {
+      console.log('[OllamaIntegration] Generating response with Ollama...');
       const response = await fetch(`${this.baseUrl}/api/generate`, {
         method: 'POST',
         headers: {
@@ -135,16 +137,16 @@ export class OllamaIntegration {
             ...options,
           },
         }),
+        signal: AbortSignal.timeout(30000), // 30s timeout
       });
-
+      console.log('[OllamaIntegration] Generate response status:', response.status);
       if (!response.ok) {
         throw new Error(`Ollama API error: ${response.status}`);
       }
-
       const data: OllamaResponse = await response.json();
       return data.response;
     } catch (error) {
-      console.error('Failed to generate response:', error);
+      console.error('[OllamaIntegration] Failed to generate response:', error);
       throw error;
     }
   }
