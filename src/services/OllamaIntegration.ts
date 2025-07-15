@@ -50,7 +50,8 @@ export class OllamaIntegration {
       console.log('[OllamaIntegration] Checking Ollama connection...');
       const response = await fetch(`${this.baseUrl}/api/tags`, {
         method: 'GET',
-        signal: AbortSignal.timeout(30000), // 30s timeout
+        // No timeout or set to 2 minutes
+        signal: AbortSignal.timeout(120000),
       });
       console.log('[OllamaIntegration] Ollama connection response:', response.status);
       return response.ok;
@@ -137,7 +138,8 @@ export class OllamaIntegration {
             ...options,
           },
         }),
-        signal: AbortSignal.timeout(30000), // 30s timeout
+        // No timeout or set to 2 minutes
+        signal: AbortSignal.timeout(120000),
       });
       console.log('[OllamaIntegration] Generate response status:', response.status);
       if (!response.ok) {
@@ -263,30 +265,34 @@ export class OllamaIntegration {
     if (!this.conversationHistory.has(conversationId)) {
       this.conversationHistory.set(conversationId, []);
     }
-
     const history = this.conversationHistory.get(conversationId)!;
 
     // Add system prompt if provided and not already present
-    if (systemPrompt && (history.length === 0 || history[0].role !== 'system')) {
-      history.unshift({ role: 'system', content: systemPrompt });
+    const reasoningPrompt = systemPrompt ||
+      'You are a helpful, reasoning AI. Always connect the dots between previous messages and the current question. Use the conversation history to provide context-aware, coherent, and insightful answers.';
+    if (history.length === 0 || history[0].role !== 'system') {
+      history.unshift({ role: 'system', content: reasoningPrompt });
     }
 
     // Add user message
     history.push({ role: 'user', content: input });
+
+    // Limit conversation history to last 20 exchanges (plus system prompt)
+    const maxHistoryLength = 21;
+    if (history.length > maxHistoryLength) {
+      const systemMessage = history[0].role === 'system' ? [history[0]] : [];
+      const recentHistory = history.slice(-maxHistoryLength + systemMessage.length);
+      this.conversationHistory.set(conversationId, [...systemMessage, ...recentHistory]);
+    }
+
+    // Log the context being sent
+    console.log('[OllamaIntegration] Sending context to Ollama:', JSON.stringify(history, null, 2));
 
     // Get response from Ollama
     const response = await this.chatCompletion(history);
 
     // Add assistant response to history
     history.push({ role: 'assistant', content: response });
-
-    // Limit conversation history to prevent context overflow
-    const maxHistoryLength = 20;
-    if (history.length > maxHistoryLength) {
-      const systemMessage = history[0].role === 'system' ? [history[0]] : [];
-      const recentHistory = history.slice(-maxHistoryLength + systemMessage.length);
-      this.conversationHistory.set(conversationId, [...systemMessage, ...recentHistory]);
-    }
 
     return response;
   }
