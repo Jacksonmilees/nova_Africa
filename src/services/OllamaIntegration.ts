@@ -50,8 +50,7 @@ export class OllamaIntegration {
       console.log('[OllamaIntegration] Checking Ollama connection...');
       const response = await fetch(`${this.baseUrl}/api/tags`, {
         method: 'GET',
-        // No timeout or set to 2 minutes
-        signal: AbortSignal.timeout(120000),
+        // No timeout
       });
       console.log('[OllamaIntegration] Ollama connection response:', response.status);
       return response.ok;
@@ -138,8 +137,7 @@ export class OllamaIntegration {
             ...options,
           },
         }),
-        // No timeout or set to 2 minutes
-        signal: AbortSignal.timeout(120000),
+        // No timeout
       });
       console.log('[OllamaIntegration] Generate response status:', response.status);
       if (!response.ok) {
@@ -149,7 +147,8 @@ export class OllamaIntegration {
       return data.response;
     } catch (error) {
       console.error('[OllamaIntegration] Failed to generate response:', error);
-      throw error;
+      // User-friendly error message
+      return 'I am thinking hard about your request, but something went wrong. Please try again in a moment or rephrase your question.';
     }
   }
 
@@ -267,11 +266,11 @@ export class OllamaIntegration {
     }
     const history = this.conversationHistory.get(conversationId)!;
 
-    // Add system prompt if provided and not already present
-    const reasoningPrompt = systemPrompt ||
-      'You are a helpful, reasoning AI. Always connect the dots between previous messages and the current question. Use the conversation history to provide context-aware, coherent, and insightful answers.';
+    // Add robust system prompt
+    const robustPrompt = systemPrompt ||
+      'You are a helpful, robust AI assistant. Always connect the dots between previous messages and the current question. If the user makes typos or is unclear, do your best to infer their intent and ask clarifying questions if needed. Your goal is to make every conversation a success, even if the user is not precise.';
     if (history.length === 0 || history[0].role !== 'system') {
-      history.unshift({ role: 'system', content: reasoningPrompt });
+      history.unshift({ role: 'system', content: robustPrompt });
     }
 
     // Add user message
@@ -289,12 +288,15 @@ export class OllamaIntegration {
     console.log('[OllamaIntegration] Sending context to Ollama:', JSON.stringify(history, null, 2));
 
     // Get response from Ollama
-    const response = await this.chatCompletion(history);
-
-    // Add assistant response to history
-    history.push({ role: 'assistant', content: response });
-
-    return response;
+    try {
+      const response = await this.chatCompletion(history);
+      // Add assistant response to history
+      history.push({ role: 'assistant', content: response });
+      return response;
+    } catch (error) {
+      console.error('[OllamaIntegration] Failed to get chat completion:', error);
+      return 'I am thinking hard about your request, but something went wrong. Please try again in a moment or rephrase your question.';
+    }
   }
 
   async processCodeRequest(code: string, request: string, language = 'javascript'): Promise<string> {
