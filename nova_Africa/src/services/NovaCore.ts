@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { NovaMemory, NovaTask, NovaPlugin, NovaAgent, NovaSystemStatus, NovaConfig, ChatMessage } from '../types';
 import AIProviderManager from './AIProviderManager';
 import ConversationManager from './ConversationManager';
@@ -5,11 +6,13 @@ import MemoryEngine from './MemoryEngine';
 import ReasoningEngine from './ReasoningEngine';
 import MultiAgentCommunicator from './MultiAgentCommunicator';
 import AutonomousPlanner from './AutonomousPlanner';
-<<<<<<< HEAD
 =======
+import { NovaMemory, NovaTask, NovaPlugin, NovaAgent, NovaSystemStatus, NovaConfig } from '../types';
+// @ts-expect-error: If you see a type error for 'pg', run: npm i --save-dev @types/pg
+import { Pool } from 'pg';
 import fs from 'fs';
 import path from 'path';
->>>>>>> ae25ae3 (deploy)
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
 
 class NovaCore {
   private memory: NovaMemory[] = [];
@@ -19,6 +22,7 @@ class NovaCore {
   private config: NovaConfig;
   private systemStatus: NovaSystemStatus;
   private isInitialized = false;
+<<<<<<< HEAD
   private listeners: Map<string, Function[]> = new Map();
   
   // Advanced AI Systems
@@ -33,17 +37,20 @@ class NovaCore {
   private autonomousMode = false;
   private thinkingInterval: NodeJS.Timeout | null = null;
   private lastThought = Date.now();
-
-<<<<<<< HEAD
 =======
+  private listeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
+  private ollamaErrorLogged = false; // Flag to prevent spamming Ollama connection errors
+  private startTime: number;
+  private lastOllamaCheck: number;
   private memoryFilePath = path.resolve(process.cwd(), 'nova-memory.json');
   private tasksFilePath = path.resolve(process.cwd(), 'nova-tasks.json');
   private pluginsFilePath = path.resolve(process.cwd(), 'nova-plugins.json');
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
 
->>>>>>> ae25ae3 (deploy)
   constructor() {
     this.config = this.getDefaultConfig();
     this.systemStatus = this.getInitialSystemStatus();
+<<<<<<< HEAD
     
     // Initialize AI subsystems
     this.aiManager = new AIProviderManager(this);
@@ -53,6 +60,10 @@ class NovaCore {
     this.multiAgentCommunicator = new MultiAgentCommunicator(this);
     this.autonomousPlanner = new AutonomousPlanner(this);
     
+=======
+    this.startTime = Date.now();
+    this.lastOllamaCheck = 0;
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
     this.initializeSystem();
   }
 
@@ -85,10 +96,14 @@ class NovaCore {
 
   private async initializeSystem() {
     try {
+<<<<<<< HEAD
       console.log('🚀 NOVA Core initializing...');
       
       // Load persistent data
       await this.loadMemoryFromStorage();
+=======
+      await this.loadMemoryFromFile();
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
       await this.loadTasksFromStorage();
       await this.loadPluginsFromStorage();
       
@@ -127,7 +142,33 @@ class NovaCore {
     }
   }
 
+<<<<<<< HEAD
   // Advanced Memory Management with Context and Relationships
+=======
+  private async loadMemoryFromFile(): Promise<void> {
+    try {
+      if (fs.existsSync(this.memoryFilePath)) {
+        const data = fs.readFileSync(this.memoryFilePath, 'utf-8');
+        this.memory = JSON.parse(data);
+      } else {
+        this.memory = [];
+      }
+    } catch (err) {
+      console.error('❌ Failed to load memory from file:', (err as Error).message);
+      this.memory = [];
+    }
+  }
+
+  private async saveMemoryToFile(): Promise<void> {
+    try {
+      fs.writeFileSync(this.memoryFilePath, JSON.stringify(this.memory, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('❌ Failed to save memory to file:', (err as Error).message);
+    }
+  }
+
+  // Memory Management
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
   async addMemory(memory: Omit<NovaMemory, 'id' | 'timestamp'>): Promise<string> {
     const newMemory: NovaMemory = {
       ...memory,
@@ -149,6 +190,7 @@ class NovaCore {
     }
     
     this.memory.unshift(newMemory);
+<<<<<<< HEAD
     
     // Trigger memory consolidation if needed
     if (this.memory.length > 1000) {
@@ -161,11 +203,20 @@ class NovaCore {
     // Autonomous learning from new memory
     if (this.autonomousMode) {
       this.autonomousPlanner.processNewMemory(newMemory);
+=======
+    await this.saveMemoryToFile();
+    this.emit('memoryAdded', newMemory);
+    
+    // Trigger autonomous thinking when new memories are added
+    if (this.config.autonomyLevel !== 'manual') {
+      this.triggerAutonomousThinking(newMemory);
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
     }
     
     return newMemory.id;
   }
 
+<<<<<<< HEAD
   // Advanced conversation processing with context and reasoning
   async processCommand(command: string, conversationId = 'main'): Promise<string> {
     try {
@@ -528,10 +579,154 @@ class NovaCore {
         content: `Found ${stalledTasks.length} stalled tasks. Investigating...`,
         importance: 7,
         tags: ['system', 'tasks', 'maintenance'],
+=======
+  // Enhanced memory retrieval with context awareness
+  getMemory(filters?: { type?: string; tags?: string[]; importance?: number; limit?: number }): NovaMemory[] {
+    // For now, just use in-memory. (DB query can be added for large datasets)
+    let filtered = this.memory;
+    
+    if (filters?.type) {
+      filtered = filtered.filter(m => m.type === filters.type);
+    }
+    
+    if (filters?.tags) {
+      filtered = filtered.filter(m => filters.tags!.some(tag => m.tags.includes(tag)));
+    }
+    
+    if (filters?.importance) {
+      filtered = filtered.filter(m => m.importance >= filters.importance!);
+    }
+    
+    // Sort by timestamp (most recent first) and limit results
+    filtered = filtered.sort((a, b) => b.timestamp - a.timestamp);
+    
+    if (filters?.limit) {
+      filtered = filtered.slice(0, filters.limit);
+    }
+    
+    return filtered;
+  }
+
+  // Get conversation context for AI processing
+  getConversationContext(limit: number = 10): string {
+    const recentInteractions = this.getMemory({ 
+      type: 'interaction', 
+      limit: limit 
+    });
+    
+    if (recentInteractions.length === 0) {
+      return '';
+    }
+    
+    const context = recentInteractions
+      .map(memory => memory.content)
+      .reverse() // Show oldest first for context
+      .join('\n\n');
+    
+    return `Previous conversation context:\n${context}\n\nCurrent conversation:`;
+  }
+
+  // Autonomous thinking system
+  private async triggerAutonomousThinking(newMemory: NovaMemory): Promise<void> {
+    if (this.config.autonomyLevel === 'manual') return;
+
+    try {
+      // Analyze the new memory and generate insights
+      const insights = await this.generateInsights(newMemory);
+      
+      if (insights) {
+        await this.addMemory({
+          type: 'thought',
+          content: insights,
+          importance: 7,
+          tags: ['autonomous-thinking', 'insight', 'analysis'],
+        });
+      }
+
+      // Check for patterns and generate learning
+      const learning = await this.generateLearning(newMemory);
+      
+      if (learning) {
+        await this.addMemory({
+          type: 'learning',
+          content: learning,
+          importance: 8,
+          tags: ['autonomous-learning', 'pattern-recognition'],
+        });
+      }
+
+      // Generate autonomous tasks if needed
+      await this.generateAutonomousTasks(newMemory);
+      
+    } catch (error) {
+      console.warn('Autonomous thinking failed:', error);
+    }
+  }
+
+  private async generateInsights(memory: NovaMemory): Promise<string | null> {
+    // Analyze the memory content and generate insights
+    const recentMemories = this.getMemory({ limit: 5 });
+    
+    if (recentMemories.length < 2) return null;
+
+    // Simple insight generation based on patterns
+    const userPatterns = recentMemories
+      .filter(m => m.type === 'interaction' && m.content.includes('User:'))
+      .map(m => m.content);
+
+    if (userPatterns.length > 1) {
+      const commonTopics = this.extractCommonTopics(userPatterns);
+      if (commonTopics.length > 0) {
+        return `Insight: User frequently discusses ${commonTopics.join(', ')}. This suggests ongoing interest in these areas.`;
+      }
+    }
+
+    return null;
+  }
+
+  private async generateLearning(memory: NovaMemory): Promise<string | null> {
+    // Generate learning based on interaction patterns
+    const recentInteractions = this.getMemory({ 
+      type: 'interaction', 
+      limit: 10 
+    });
+
+    if (recentInteractions.length < 3) return null;
+
+    // Analyze conversation patterns
+    const patterns = this.analyzeConversationPatterns(recentInteractions);
+    
+    if (patterns.length > 0) {
+      return `Learning: ${patterns.join(' ')}`;
+    }
+
+    return null;
+  }
+
+  private async generateAutonomousTasks(memory: NovaMemory): Promise<void> {
+    // Generate autonomous tasks based on memory analysis
+    const recentMemories = this.getMemory({ limit: 10 });
+    
+    // Example: If user asks about coding frequently, create a task to improve code assistance
+    const codingQuestions = recentMemories.filter(m => 
+      m.type === 'interaction' && 
+      m.content.toLowerCase().includes('code') &&
+      m.timestamp > Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
+    );
+
+    if (codingQuestions.length >= 3) {
+      await this.createTask({
+        title: 'Enhance Code Assistance Capabilities',
+        description: 'User frequently asks coding questions. Consider improving code generation and debugging features.',
+        status: 'pending',
+        priority: 'medium',
+        tags: ['autonomous', 'code-assistance', 'improvement'],
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
       });
     }
   }
 
+<<<<<<< HEAD
   // Public API methods
   async enableAutonomousMode(): Promise<void> {
     this.config.autonomyLevel = 'autonomous';
@@ -595,12 +790,8 @@ class NovaCore {
   // Enhanced storage with compression
   private async saveMemoryToStorage(): Promise<void> {
     try {
-<<<<<<< HEAD
       const compressed = await this.memoryEngine.compressMemories(this.memory);
       localStorage.setItem('nova-memory', compressed);
-=======
-      fs.writeFileSync(this.memoryFilePath, JSON.stringify(this.memory, null, 2), 'utf-8');
->>>>>>> ae25ae3 (deploy)
     } catch (error) {
       console.error('Failed to save memories:', error);
     }
@@ -608,17 +799,9 @@ class NovaCore {
 
   private async loadMemoryFromStorage(): Promise<void> {
     try {
-<<<<<<< HEAD
       const stored = localStorage.getItem('nova-memory');
       if (stored) {
         this.memory = await this.memoryEngine.decompressMemories(stored);
-=======
-      if (fs.existsSync(this.memoryFilePath)) {
-        const data = fs.readFileSync(this.memoryFilePath, 'utf-8');
-        this.memory = JSON.parse(data);
-      } else {
-        this.memory = [];
->>>>>>> ae25ae3 (deploy)
       }
     } catch (error) {
       console.error('Failed to load memories:', error);
@@ -626,7 +809,6 @@ class NovaCore {
     }
   }
 
-<<<<<<< HEAD
   // Rest of the existing methods...
   async updateTask(id: string, updates: Partial<NovaTask>): Promise<void> {
     const index = this.tasks.findIndex(t => t.id === id);
@@ -634,6 +816,59 @@ class NovaCore {
       this.tasks[index] = { ...this.tasks[index], ...updates, updatedAt: Date.now() };
       await this.saveTasksToStorage();
       this.emit('taskUpdated', this.tasks[index]);
+=======
+  private extractCommonTopics(interactions: string[]): string[] {
+    const topics = new Set<string>();
+    const commonWords = ['code', 'programming', 'ai', 'machine learning', 'web', 'app', 'database', 'api'];
+    
+    for (const interaction of interactions) {
+      for (const word of commonWords) {
+        if (interaction.toLowerCase().includes(word)) {
+          topics.add(word);
+        }
+      }
+    }
+    
+    return Array.from(topics);
+  }
+
+  private analyzeConversationPatterns(interactions: NovaMemory[]): string[] {
+    const patterns: string[] = [];
+    
+    // Analyze time patterns
+    const timeGaps = [];
+    for (let i = 1; i < interactions.length; i++) {
+      const gap = interactions[i-1].timestamp - interactions[i].timestamp;
+      timeGaps.push(gap);
+    }
+    
+    const avgGap = timeGaps.reduce((a, b) => a + b, 0) / timeGaps.length;
+    if (avgGap < 5 * 60 * 1000) { // Less than 5 minutes
+      patterns.push('User engages in rapid-fire conversations');
+    }
+    
+    // Analyze content patterns
+    const questionCount = interactions.filter(i => 
+      i.content.includes('?') || 
+      i.content.toLowerCase().includes('how') ||
+      i.content.toLowerCase().includes('what') ||
+      i.content.toLowerCase().includes('why')
+    ).length;
+    
+    if (questionCount > interactions.length * 0.7) {
+      patterns.push('User primarily asks questions rather than making statements');
+    }
+    
+    return patterns;
+  }
+
+  async updateMemory(id: string, updates: Partial<NovaMemory>): Promise<void> {
+    const index = this.memory.findIndex(m => m.id === id);
+    if (index !== -1) {
+      this.memory[index] = { ...this.memory[index], ...updates };
+      await this.saveMemoryToFile();
+      this.emit('memoryUpdated', this.memory[index]);
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
     }
   }
 
@@ -685,15 +920,81 @@ class NovaCore {
     }
   }
 
-  private async updateSystemStatus(): Promise<void> {
-    const status = {
-      ...this.systemStatus,
-      network: navigator.onLine,
-      activePlugins: this.plugins.filter(p => p.enabled).length,
-      activeTasks: this.tasks.filter(t => t.status === 'in_progress').length,
-      uptime: this.systemStatus.uptime + 5,
-    };
+<<<<<<< HEAD
+=======
+  // Agent Communication
+  async sendToAgent(agentId: string, message: string): Promise<string> {
+    const agent = this.agents.find(a => a.id === agentId);
+    if (!agent) throw new Error(`Agent ${agentId} not found`);
 
+    try {
+      if (agent.type === 'ollama') {
+        return await this.sendToOllama(message, agent.model);
+      } else if (agent.type === 'remote') {
+        return await this.sendToRemoteAgent(agent.endpoint!, message);
+      }
+      return 'Agent communication not implemented';
+    } catch (error) {
+      throw new Error(`Failed to communicate with agent: ${error}`);
+    }
+  }
+
+  private async sendToOllama(message: string, model = 'llama3.1'): Promise<string> {
+    try {
+      const response = await fetch(`${this.config.ollamaEndpoint}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          prompt: message,
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.response;
+    } catch (error) {
+      throw new Error(`Ollama communication failed: ${error}`);
+    }
+  }
+
+  private async sendToRemoteAgent(endpoint: string, message: string): Promise<string> {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Remote agent error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.response;
+  }
+
+  // System Status
+  private startSystemMonitoring(): void {
+    // Update system status every 60 seconds to reduce connection attempts
+    setInterval(() => this.updateSystemStatus(), 60000);
+  }
+
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
+  private async updateSystemStatus(): Promise<void> {
+    // Update basic system metrics
+    this.systemStatus.cpu = Math.random() * 100; // Simulated CPU usage
+    this.systemStatus.memory = Math.random() * 100; // Simulated memory usage
+    this.systemStatus.storage = Math.random() * 100; // Simulated storage usage
+    this.systemStatus.network = navigator.onLine;
+    this.systemStatus.activePlugins = this.plugins.filter(p => p.enabled).length;
+    this.systemStatus.activeTasks = this.tasks.filter(t => t.status === 'in_progress').length;
+    this.systemStatus.uptime = Date.now() - this.startTime;
+
+<<<<<<< HEAD
     // Check AI provider status
     try {
       const providers = await this.aiManager.getAvailableProviders();
@@ -702,11 +1003,53 @@ class NovaCore {
     } catch {
       status.ollamaStatus = 'disconnected';
     }
+=======
+      // Only check Ollama connection every 5 minutes to reduce spam
+  if (!this.lastOllamaCheck || Date.now() - this.lastOllamaCheck > 300000) {
+    await this.checkOllamaConnection();
+    this.lastOllamaCheck = Date.now();
+  }
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
 
-    this.systemStatus = status;
-    this.emit('statusUpdated', status);
+    this.emit('statusUpdated', this.systemStatus);
   }
 
+<<<<<<< HEAD
+=======
+  // Ollama Integration
+  private async checkOllamaConnection(): Promise<void> {
+    try {
+      const response = await fetch(`${this.config.ollamaEndpoint}/api/tags`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000) // 3 second timeout
+      });
+      if (response.ok) {
+        const data = await response.json();
+        this.systemStatus.ollamaStatus = 'connected';
+        this.ollamaErrorLogged = false; // Reset error flag on success
+        
+        // Initialize Ollama agent
+        await this.addAgent({
+          id: 'ollama-local',
+          name: 'Ollama Local',
+          type: 'ollama',
+          model: this.config.defaultModel,
+          capabilities: ['chat', 'code', 'reasoning'],
+          status: 'online',
+          lastHeartbeat: Date.now(),
+        });
+      }
+    } catch (error) {
+      this.systemStatus.ollamaStatus = 'disconnected';
+      // Only log once per session to prevent spam
+      if (!this.ollamaErrorLogged) {
+        console.warn('Ollama not available - running in basic mode');
+        this.ollamaErrorLogged = true;
+      }
+    }
+  }
+
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
   private async initializeAgents(): Promise<void> {
     await this.addAgent({
       id: 'nova-core',
@@ -728,23 +1071,14 @@ class NovaCore {
     this.emit('agentAdded', agent);
   }
 
+<<<<<<< HEAD
   private async saveTasksToStorage(): Promise<void> {
     localStorage.setItem('nova-tasks', JSON.stringify(this.tasks));
   }
 
-  private async loadTasksFromStorage(): Promise<void> {
-    const stored = localStorage.getItem('nova-tasks');
-    if (stored) {
-      this.tasks = JSON.parse(stored);
 =======
-  private async saveTasksToStorage(): Promise<void> {
-    try {
-      fs.writeFileSync(this.tasksFilePath, JSON.stringify(this.tasks, null, 2), 'utf-8');
-    } catch (error) {
-      console.error('Failed to save tasks:', error);
-    }
-  }
-
+  // Storage Management
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
   private async loadTasksFromStorage(): Promise<void> {
     try {
       if (fs.existsSync(this.tasksFilePath)) {
@@ -753,15 +1087,14 @@ class NovaCore {
       } else {
         this.tasks = [];
       }
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
+    } catch (err) {
+      console.error('❌ Failed to load tasks from file:', (err as Error).message);
       this.tasks = [];
->>>>>>> ae25ae3 (deploy)
     }
   }
 
-  private async savePluginsToStorage(): Promise<void> {
 <<<<<<< HEAD
+  private async savePluginsToStorage(): Promise<void> {
     localStorage.setItem('nova-plugins', JSON.stringify(this.plugins));
   }
 
@@ -769,11 +1102,16 @@ class NovaCore {
     const stored = localStorage.getItem('nova-plugins');
     if (stored) {
       this.plugins = JSON.parse(stored);
+    }
+  }
+
+  on(event: string, callback: Function): void {
 =======
+  private async saveTasksToStorage(): Promise<void> {
     try {
-      fs.writeFileSync(this.pluginsFilePath, JSON.stringify(this.plugins, null, 2), 'utf-8');
-    } catch (error) {
-      console.error('Failed to save plugins:', error);
+      fs.writeFileSync(this.tasksFilePath, JSON.stringify(this.tasks, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('❌ Failed to save tasks to file:', (err as Error).message);
     }
   }
 
@@ -814,21 +1152,30 @@ class NovaCore {
           },
         ];
       }
-    } catch (error) {
-      console.error('Failed to load plugins:', error);
+    } catch (err) {
+      console.error('❌ Failed to load plugins from file:', (err as Error).message);
       this.plugins = [];
->>>>>>> ae25ae3 (deploy)
     }
   }
 
-  on(event: string, callback: Function): void {
+  private async savePluginsToStorage(): Promise<void> {
+    try {
+      fs.writeFileSync(this.pluginsFilePath, JSON.stringify(this.plugins, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('❌ Failed to save plugins to file:', (err as Error).message);
+    }
+  }
+
+  // Event System
+  on(event: string, callback: (...args: unknown[]) => void): void {
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
     this.listeners.get(event)!.push(callback);
   }
 
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.forEach(callback => callback(data));
@@ -836,7 +1183,7 @@ class NovaCore {
   }
 
   private generateId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
   // Getters
@@ -851,20 +1198,51 @@ class NovaCore {
 
   async updateConfig(updates: Partial<NovaConfig>): Promise<void> {
     this.config = { ...this.config, ...updates };
-<<<<<<< HEAD
     localStorage.setItem('nova-config', JSON.stringify(this.config));
-=======
-    // localStorage.setItem('nova-config', JSON.stringify(this.config)); // Removed
->>>>>>> ae25ae3 (deploy)
     this.emit('configUpdated', this.config);
   }
 
+<<<<<<< HEAD
   async shutdown(): Promise<void> {
     if (this.thinkingInterval) {
       clearInterval(this.thinkingInterval);
     }
     
     await this.saveMemoryToStorage();
+=======
+  // Enhanced command processing with memory context
+  async processCommand(command: string): Promise<string> {
+    // Get conversation context
+    const context = this.getConversationContext(5);
+    
+    await this.addMemory({
+      type: 'interaction',
+      content: `User command: ${command}`,
+      importance: 5,
+      tags: ['command', 'user-input'],
+    });
+
+    // Process command through available agents with context
+    if (this.systemStatus.ollamaStatus === 'connected') {
+      const enhancedCommand = context ? `${context}\n\nUser: ${command}` : command;
+      const response = await this.sendToAgent('ollama-local', enhancedCommand);
+      
+      await this.addMemory({
+        type: 'interaction',
+        content: `NOVA response: ${response}`,
+        importance: 5,
+        tags: ['response', 'ollama'],
+      });
+      
+      return response;
+    }
+
+    return 'NOVA system online. Ollama connection required for advanced processing.';
+  }
+
+  async shutdown(): Promise<void> {
+    await this.saveMemoryToFile();
+>>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
     await this.saveTasksToStorage();
     await this.savePluginsToStorage();
     

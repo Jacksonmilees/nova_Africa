@@ -1,0 +1,47 @@
+import { NovaPlugin } from '../../types';
+export declare class IntelligentResearcher {
+    private plugin;
+    constructor();
+    conductDeepResearch(topic: string, depth?: 'surface' | 'moderate' | 'comprehensive'): Promise<string>;
+    synthesizeInformation(sources: string[], query: string): Promise<string>;
+    verifyFacts(claims: string[]): Promise<string>;
+    analyzeTrends(topic: string, timeframe: string): Promise<string>;
+    compareTopics(topics: string[]): Promise<string>;
+    evaluateSources(sources: string[]): Promise<string>;
+    createKnowledgeMap(topic: string): Promise<string>;
+    generateReport(topic: string, format: 'executive' | 'detailed' | 'technical'): Promise<string>;
+    private generateOverview;
+    private extractKeyFindings;
+    private findReliableSources;
+    private performAnalysis;
+    private generateInsights;
+    private identifyCommonThemes;
+    private findContradictions;
+    private findConsensus;
+    private verifySingleClaim;
+    private determineTrendDirection;
+    private identifyTrendDrivers;
+    private findSimilarities;
+    private findDifferences;
+    private assessCredibility;
+    private analyzeBias;
+    private analyzeRecency;
+    private analyzeAuthority;
+    private identifyCoreoncepts;
+    private mapRelationships;
+    private generateExecutiveSummary;
+    private describeMethodology;
+    private compileFindngs;
+    private drawConclusions;
+    private formulateRecommendations;
+    private assessConfidence;
+    private calculateOverallReliability;
+    private flagSuspiciousClaims;
+    private generateVerificationRecommendations;
+    private identifyKnowledgeGaps;
+    private createSynthesizedAnswer;
+    private assessReliability;
+    getPlugin(): NovaPlugin;
+}
+export default IntelligentResearcher;
+//# sourceMappingURL=IntelligentResearcher.d.ts.map
