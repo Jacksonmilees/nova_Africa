@@ -1,15 +1,4 @@
 {
-<<<<<<< HEAD
-  "name": "nova-telegram-bot",
-  "version": "2.0.0",
-  "description": "NOVA - Neural Operational Virtual Assistant Telegram Bot",
-  "main": "bot.js",
-  "type": "module",
-  "scripts": {
-    "start": "node bot.js",
-    "dev": "node --watch bot.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-=======
   "name": "nova-africa",
   "private": true,
   "version": "1.0.0",
@@ -32,7 +21,6 @@
     "bot:enhanced-v3": "node src/bot/EnhancedNovaBot.js",
     "build:bot": "tsc -p tsconfig.bot.json",
     "test:bot": "node test-bot.js"
->>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
   },
   "keywords": [
     "ai",
@@ -41,20 +29,7 @@
     "nova",
     "assistant"
   ],
-  "author": "Jackson Alex",
-  "license": "MIT",
   "dependencies": {
-<<<<<<< HEAD
-    "axios": "^1.6.2",
-    "dotenv": "^16.3.1",
-    "node-cron": "^3.0.3",
-    "node-telegram-bot-api": "^0.66.0",
-    "pg": "^8.11.3",
-    "uuid": "^9.0.1"
-  },
-  "devDependencies": {
-    "@types/pg": "^8.15.4"
-=======
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -92,6 +67,5 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
->>>>>>> 43314f1 (Refactor: File-based storage, Ollama as main AI, Gemini fallback, no DB required. Update docs for VPS deployment.)
   }
 }
