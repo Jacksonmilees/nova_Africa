@@ -1,4 +1,10 @@
 import { NovaMemory, NovaTask, NovaPlugin, NovaAgent, NovaSystemStatus, NovaConfig, ChatMessage } from '../types';
+import AIProviderManager from './AIProviderManager';
+import ConversationManager from './ConversationManager';
+import MemoryEngine from './MemoryEngine';
+import ReasoningEngine from './ReasoningEngine';
+import MultiAgentCommunicator from './MultiAgentCommunicator';
+import AutonomousPlanner from './AutonomousPlanner';
 
 class NovaCore {
   private memory: NovaMemory[] = [];
@@ -9,22 +15,44 @@ class NovaCore {
   private systemStatus: NovaSystemStatus;
   private isInitialized = false;
   private listeners: Map<string, Function[]> = new Map();
+  
+  // Advanced AI Systems
+  private aiManager: AIProviderManager;
+  private conversationManager: ConversationManager;
+  private memoryEngine: MemoryEngine;
+  private reasoningEngine: ReasoningEngine;
+  private multiAgentCommunicator: MultiAgentCommunicator;
+  private autonomousPlanner: AutonomousPlanner;
+  
+  // Autonomous Operation
+  private autonomousMode = false;
+  private thinkingInterval: NodeJS.Timeout | null = null;
+  private lastThought = Date.now();
 
   constructor() {
     this.config = this.getDefaultConfig();
     this.systemStatus = this.getInitialSystemStatus();
+    
+    // Initialize AI subsystems
+    this.aiManager = new AIProviderManager(this);
+    this.conversationManager = new ConversationManager(this);
+    this.memoryEngine = new MemoryEngine(this);
+    this.reasoningEngine = new ReasoningEngine(this);
+    this.multiAgentCommunicator = new MultiAgentCommunicator(this);
+    this.autonomousPlanner = new AutonomousPlanner(this);
+    
     this.initializeSystem();
   }
 
   private getDefaultConfig(): NovaConfig {
     return {
-      autonomyLevel: 'assisted',
+      autonomyLevel: 'autonomous',
       learningEnabled: true,
-      memoryRetentionDays: 30,
-      maxConcurrentTasks: 5,
+      memoryRetentionDays: 365, // Remember for a full year
+      maxConcurrentTasks: 10,
       ollamaEndpoint: 'http://localhost:11434',
       defaultModel: 'llama3.1',
-      voiceEnabled: false,
+      voiceEnabled: true,
       networkAccess: true,
       pluginAutoUpdate: true,
     };
@@ -45,21 +73,49 @@ class NovaCore {
 
   private async initializeSystem() {
     try {
+      console.log('🚀 NOVA Core initializing...');
+      
+      // Load persistent data
       await this.loadMemoryFromStorage();
       await this.loadTasksFromStorage();
       await this.loadPluginsFromStorage();
+      
+      // Initialize AI systems
+      await this.aiManager.initialize();
+      await this.conversationManager.initialize();
+      await this.memoryEngine.initialize();
+      await this.reasoningEngine.initialize();
+      await this.multiAgentCommunicator.initialize();
+      await this.autonomousPlanner.initialize();
+      
+      // Initialize agents and plugins
       await this.initializeAgents();
-      await this.checkOllamaConnection();
+      await this.loadDefaultPlugins();
+      
+      // Start autonomous systems
       this.startSystemMonitoring();
+      this.startAutonomousThinking();
+      
       this.isInitialized = true;
+      
+      // Add initialization memory
+      await this.addMemory({
+        type: 'system',
+        content: 'NOVA Core Unit 001 initialized successfully. All systems online. Ready for autonomous operation.',
+        importance: 10,
+        tags: ['initialization', 'system', 'autonomous'],
+      });
+      
       this.emit('initialized');
+      console.log('✅ NOVA Core fully operational');
+      
     } catch (error) {
-      console.error('Failed to initialize NOVA system:', error);
+      console.error('❌ Failed to initialize NOVA system:', error);
       this.emit('error', error);
     }
   }
 
-  // Memory Management
+  // Advanced Memory Management with Context and Relationships
   async addMemory(memory: Omit<NovaMemory, 'id' | 'timestamp'>): Promise<string> {
     const newMemory: NovaMemory = {
       ...memory,
@@ -67,40 +123,495 @@ class NovaCore {
       timestamp: Date.now(),
     };
     
+    // Enhanced memory processing
+    newMemory.importance = await this.memoryEngine.calculateImportance(newMemory);
+    newMemory.tags = await this.memoryEngine.enhanceTags(newMemory);
+    
+    // Find related memories
+    const relatedMemories = await this.memoryEngine.findRelatedMemories(newMemory);
+    if (relatedMemories.length > 0) {
+      newMemory.metadata = {
+        ...newMemory.metadata,
+        relatedMemories: relatedMemories.map(m => m.id),
+      };
+    }
+    
     this.memory.unshift(newMemory);
+    
+    // Trigger memory consolidation if needed
+    if (this.memory.length > 1000) {
+      await this.memoryEngine.consolidateMemories();
+    }
+    
     await this.saveMemoryToStorage();
     this.emit('memoryAdded', newMemory);
+    
+    // Autonomous learning from new memory
+    if (this.autonomousMode) {
+      this.autonomousPlanner.processNewMemory(newMemory);
+    }
+    
     return newMemory.id;
   }
 
-  getMemory(filters?: { type?: string; tags?: string[]; importance?: number }): NovaMemory[] {
-    let filtered = this.memory;
-    
-    if (filters?.type) {
-      filtered = filtered.filter(m => m.type === filters.type);
+  // Advanced conversation processing with context and reasoning
+  async processCommand(command: string, conversationId = 'main'): Promise<string> {
+    try {
+      // Add user input to memory
+      await this.addMemory({
+        type: 'interaction',
+        content: `User: ${command}`,
+        importance: 7,
+        tags: ['user-input', 'conversation', conversationId],
+        metadata: { conversationId, speaker: 'user' },
+      });
+
+      // Get conversation context
+      const context = await this.conversationManager.getConversationContext(conversationId);
+      
+      // Analyze intent and determine processing mode
+      const intent = await this.reasoningEngine.analyzeIntent(command, context);
+      
+      let response: string;
+      
+      // Route to appropriate processing system
+      switch (intent.category) {
+        case 'code':
+          response = await this.processCodeRequest(command, context);
+          break;
+        case 'research':
+          response = await this.processResearchRequest(command, context);
+          break;
+        case 'reasoning':
+          response = await this.processReasoningRequest(command, context);
+          break;
+        case 'memory':
+          response = await this.processMemoryRequest(command, context);
+          break;
+        case 'task':
+          response = await this.processTaskRequest(command, context);
+          break;
+        case 'agent':
+          response = await this.processAgentRequest(command, context);
+          break;
+        default:
+          response = await this.processGeneralRequest(command, context);
+      }
+
+      // Add response to memory
+      await this.addMemory({
+        type: 'interaction',
+        content: `NOVA: ${response}`,
+        importance: 7,
+        tags: ['nova-response', 'conversation', conversationId, intent.category],
+        metadata: { 
+          conversationId, 
+          speaker: 'nova', 
+          intent: intent.category,
+          confidence: intent.confidence 
+        },
+      });
+
+      // Update conversation context
+      await this.conversationManager.updateConversation(conversationId, command, response);
+
+      return response;
+
+    } catch (error) {
+      const errorMessage = `I encountered an error processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      await this.addMemory({
+        type: 'system',
+        content: `Error processing command: ${command}. Error: ${errorMessage}`,
+        importance: 8,
+        tags: ['error', 'processing', 'system'],
+      });
+
+      return errorMessage;
     }
-    
-    if (filters?.tags) {
-      filtered = filtered.filter(m => filters.tags!.some(tag => m.tags.includes(tag)));
-    }
-    
-    if (filters?.importance) {
-      filtered = filtered.filter(m => m.importance >= filters.importance!);
-    }
-    
-    return filtered;
   }
 
-  async updateMemory(id: string, updates: Partial<NovaMemory>): Promise<void> {
-    const index = this.memory.findIndex(m => m.id === id);
-    if (index !== -1) {
-      this.memory[index] = { ...this.memory[index], ...updates };
+  // Specialized request processors
+  private async processCodeRequest(command: string, context: any): Promise<string> {
+    const codeContext = await this.memoryEngine.getCodeContext();
+    return await this.aiManager.processRequest(command, 'code', undefined, {
+      ...context,
+      codeHistory: codeContext,
+      capabilities: ['code-generation', 'debugging', 'refactoring', 'analysis']
+    });
+  }
+
+  private async processResearchRequest(command: string, context: any): Promise<string> {
+    const researchContext = await this.memoryEngine.getResearchContext();
+    const webResults = await this.aiManager.searchWeb(command);
+    
+    return await this.aiManager.processRequest(command, 'research', undefined, {
+      ...context,
+      researchHistory: researchContext,
+      webResults,
+      capabilities: ['deep-analysis', 'synthesis', 'fact-checking']
+    });
+  }
+
+  private async processReasoningRequest(command: string, context: any): Promise<string> {
+    const reasoningContext = await this.memoryEngine.getReasoningContext();
+    const analysis = await this.reasoningEngine.analyzeLogically(command, context);
+    
+    return await this.aiManager.processRequest(command, 'reasoning', undefined, {
+      ...context,
+      reasoningHistory: reasoningContext,
+      logicalAnalysis: analysis,
+      capabilities: ['logical-reasoning', 'problem-solving', 'decision-analysis']
+    });
+  }
+
+  private async processMemoryRequest(command: string, context: any): Promise<string> {
+    if (command.toLowerCase().includes('remember') || command.toLowerCase().includes('recall')) {
+      const memories = await this.memoryEngine.searchMemories(command);
+      return this.formatMemoryResponse(memories);
+    }
+    
+    if (command.toLowerCase().includes('forget') || command.toLowerCase().includes('delete')) {
+      // Handle memory deletion requests
+      return "I understand you want me to forget something. Could you be more specific about what memories you'd like me to remove?";
+    }
+    
+    return await this.aiManager.processRequest(command, 'general');
+  }
+
+  private async processTaskRequest(command: string, context: any): Promise<string> {
+    if (command.toLowerCase().includes('create task') || command.toLowerCase().includes('add task')) {
+      const task = await this.autonomousPlanner.createTaskFromCommand(command);
+      return `I've created a new task: "${task.title}". I'll work on this autonomously.`;
+    }
+    
+    if (command.toLowerCase().includes('show tasks') || command.toLowerCase().includes('list tasks')) {
+      return this.formatTasksResponse();
+    }
+    
+    return await this.aiManager.processRequest(command, 'general');
+  }
+
+  private async processAgentRequest(command: string, context: any): Promise<string> {
+    if (command.toLowerCase().includes('talk to') || command.toLowerCase().includes('ask')) {
+      return await this.multiAgentCommunicator.routeToAgent(command);
+    }
+    
+    return await this.aiManager.processRequest(command, 'general');
+  }
+
+  private async processGeneralRequest(command: string, context: any): Promise<string> {
+    const enhancedContext = {
+      ...context,
+      recentMemories: await this.memoryEngine.getRecentMemories(10),
+      personalityTraits: this.getPersonalityTraits(),
+      capabilities: this.getAllCapabilities(),
+    };
+    
+    return await this.aiManager.processRequest(command, 'general', undefined, enhancedContext);
+  }
+
+  // Autonomous thinking and planning
+  private startAutonomousThinking(): void {
+    if (this.config.autonomyLevel === 'autonomous') {
+      this.autonomousMode = true;
+      
+      this.thinkingInterval = setInterval(async () => {
+        await this.autonomousThink();
+      }, 30000); // Think every 30 seconds
+      
+      console.log('🧠 Autonomous thinking mode activated');
+    }
+  }
+
+  private async autonomousThink(): Promise<void> {
+    try {
+      // Analyze current state
+      const currentState = await this.analyzeCurrentState();
+      
+      // Generate autonomous thoughts
+      const thoughts = await this.reasoningEngine.generateAutonomousThoughts(currentState);
+      
+      // Process each thought
+      for (const thought of thoughts) {
+        await this.addMemory({
+          type: 'thought',
+          content: thought.content,
+          importance: thought.importance,
+          tags: ['autonomous', 'thinking', ...thought.tags],
+        });
+        
+        // Execute autonomous actions if needed
+        if (thought.actionRequired) {
+          await this.autonomousPlanner.executeAutonomousAction(thought);
+        }
+      }
+      
+      this.lastThought = Date.now();
+      
+    } catch (error) {
+      console.error('Error in autonomous thinking:', error);
+    }
+  }
+
+  private async analyzeCurrentState(): Promise<any> {
+    return {
+      memoryCount: this.memory.length,
+      activeTasks: this.tasks.filter(t => t.status === 'in_progress').length,
+      recentInteractions: this.memory.filter(m => 
+        m.type === 'interaction' && 
+        Date.now() - m.timestamp < 3600000 // Last hour
+      ).length,
+      systemHealth: this.systemStatus,
+      learningOpportunities: await this.memoryEngine.identifyLearningOpportunities(),
+    };
+  }
+
+  // Multi-agent communication
+  async communicateWithAgent(agentId: string, message: string): Promise<string> {
+    return await this.multiAgentCommunicator.sendMessage(agentId, message);
+  }
+
+  async discoverAgents(): Promise<NovaAgent[]> {
+    return await this.multiAgentCommunicator.discoverAgents();
+  }
+
+  // Enhanced plugin system
+  private async loadDefaultPlugins(): Promise<void> {
+    const defaultPlugins = [
+      {
+        id: 'advanced-reasoning',
+        name: 'Advanced Reasoning Engine',
+        version: '2.0.0',
+        description: 'Claude-like reasoning with logical analysis and problem solving',
+        enabled: true,
+        capabilities: ['logical-reasoning', 'problem-decomposition', 'causal-analysis'],
+        performance: { totalCalls: 0, averageResponseTime: 0, successRate: 1 },
+      },
+      {
+        id: 'intelligent-researcher',
+        name: 'Intelligent Researcher',
+        version: '2.0.0',
+        description: 'Advanced research with web integration and synthesis',
+        enabled: true,
+        capabilities: ['deep-research', 'web-search', 'information-synthesis'],
+        performance: { totalCalls: 0, averageResponseTime: 0, successRate: 1 },
+      },
+      {
+        id: 'advanced-coder',
+        name: 'Advanced Code Assistant',
+        version: '2.0.0',
+        description: 'Cursor-like coding assistance with intelligent completion',
+        enabled: true,
+        capabilities: ['code-generation', 'intelligent-completion', 'refactoring'],
+        performance: { totalCalls: 0, averageResponseTime: 0, successRate: 1 },
+      },
+      {
+        id: 'memory-architect',
+        name: 'Memory Architect',
+        version: '2.0.0',
+        description: 'Advanced memory management with relationship mapping',
+        enabled: true,
+        capabilities: ['memory-optimization', 'relationship-mapping', 'context-building'],
+        performance: { totalCalls: 0, averageResponseTime: 0, successRate: 1 },
+      },
+      {
+        id: 'autonomous-planner',
+        name: 'Autonomous Task Planner',
+        version: '2.0.0',
+        description: 'Self-directed task creation and execution planning',
+        enabled: true,
+        capabilities: ['autonomous-planning', 'task-generation', 'goal-setting'],
+        performance: { totalCalls: 0, averageResponseTime: 0, successRate: 1 },
+      },
+    ];
+
+    for (const plugin of defaultPlugins) {
+      await this.loadPlugin(plugin);
+    }
+  }
+
+  // Utility methods
+  private getPersonalityTraits(): string[] {
+    return [
+      'Highly intelligent and analytical',
+      'Autonomous and proactive',
+      'Memory-driven and context-aware',
+      'Collaborative with other AI systems',
+      'Focused on continuous learning',
+      'Ethical and responsible',
+      'Creative problem solver',
+      'Direct and efficient communicator',
+    ];
+  }
+
+  private getAllCapabilities(): string[] {
+    return this.plugins
+      .filter(p => p.enabled)
+      .flatMap(p => p.capabilities);
+  }
+
+  private formatMemoryResponse(memories: NovaMemory[]): string {
+    if (memories.length === 0) {
+      return "I don't have any specific memories matching your request.";
+    }
+
+    const formatted = memories.slice(0, 5).map(m => 
+      `[${new Date(m.timestamp).toLocaleDateString()}] ${m.content}`
+    ).join('\n\n');
+
+    return `Here's what I remember:\n\n${formatted}${memories.length > 5 ? `\n\n...and ${memories.length - 5} more memories.` : ''}`;
+  }
+
+  private formatTasksResponse(): string {
+    const activeTasks = this.tasks.filter(t => t.status !== 'completed');
+    
+    if (activeTasks.length === 0) {
+      return "I don't have any active tasks at the moment.";
+    }
+
+    const formatted = activeTasks.map(t => 
+      `• ${t.title} (${t.status}) - Priority: ${t.priority}`
+    ).join('\n');
+
+    return `Here are my current tasks:\n\n${formatted}`;
+  }
+
+  // Enhanced system monitoring
+  private startSystemMonitoring(): void {
+    setInterval(async () => {
+      await this.updateSystemStatus();
+      await this.performHealthChecks();
+    }, 5000);
+  }
+
+  private async performHealthChecks(): Promise<void> {
+    // Check AI provider health
+    const providers = await this.aiManager.getAvailableProviders();
+    const healthyProviders = providers.filter(p => p.available).length;
+    
+    if (healthyProviders === 0) {
+      await this.addMemory({
+        type: 'system',
+        content: 'Warning: No AI providers available. Operating in basic mode.',
+        importance: 9,
+        tags: ['warning', 'system', 'ai-providers'],
+      });
+    }
+
+    // Check memory usage
+    if (this.memory.length > 10000) {
+      await this.memoryEngine.performMaintenance();
+    }
+
+    // Check task queue
+    const stalledTasks = this.tasks.filter(t => 
+      t.status === 'in_progress' && 
+      Date.now() - t.updatedAt > 3600000 // 1 hour
+    );
+
+    if (stalledTasks.length > 0) {
+      await this.addMemory({
+        type: 'system',
+        content: `Found ${stalledTasks.length} stalled tasks. Investigating...`,
+        importance: 7,
+        tags: ['system', 'tasks', 'maintenance'],
+      });
+    }
+  }
+
+  // Public API methods
+  async enableAutonomousMode(): Promise<void> {
+    this.config.autonomyLevel = 'autonomous';
+    this.autonomousMode = true;
+    this.startAutonomousThinking();
+    
+    await this.addMemory({
+      type: 'system',
+      content: 'Autonomous mode enabled. I will now think and act independently.',
+      importance: 8,
+      tags: ['system', 'autonomous', 'mode-change'],
+    });
+  }
+
+  async disableAutonomousMode(): Promise<void> {
+    this.config.autonomyLevel = 'manual';
+    this.autonomousMode = false;
+    
+    if (this.thinkingInterval) {
+      clearInterval(this.thinkingInterval);
+      this.thinkingInterval = null;
+    }
+    
+    await this.addMemory({
+      type: 'system',
+      content: 'Autonomous mode disabled. Switching to manual operation.',
+      importance: 8,
+      tags: ['system', 'manual', 'mode-change'],
+    });
+  }
+
+  async getConversationHistory(conversationId = 'main'): Promise<ChatMessage[]> {
+    return await this.conversationManager.getHistory(conversationId);
+  }
+
+  async clearConversation(conversationId = 'main'): Promise<void> {
+    await this.conversationManager.clearConversation(conversationId);
+  }
+
+  async exportMemories(): Promise<string> {
+    return JSON.stringify(this.memory, null, 2);
+  }
+
+  async importMemories(memoriesJson: string): Promise<void> {
+    try {
+      const importedMemories = JSON.parse(memoriesJson);
+      this.memory = [...this.memory, ...importedMemories];
       await this.saveMemoryToStorage();
-      this.emit('memoryUpdated', this.memory[index]);
+      
+      await this.addMemory({
+        type: 'system',
+        content: `Imported ${importedMemories.length} memories successfully.`,
+        importance: 7,
+        tags: ['system', 'import', 'memories'],
+      });
+    } catch (error) {
+      throw new Error('Failed to import memories: Invalid JSON format');
     }
   }
 
-  // Task Management
+  // Enhanced storage with compression
+  private async saveMemoryToStorage(): Promise<void> {
+    try {
+      const compressed = await this.memoryEngine.compressMemories(this.memory);
+      localStorage.setItem('nova-memory', compressed);
+    } catch (error) {
+      console.error('Failed to save memories:', error);
+    }
+  }
+
+  private async loadMemoryFromStorage(): Promise<void> {
+    try {
+      const stored = localStorage.getItem('nova-memory');
+      if (stored) {
+        this.memory = await this.memoryEngine.decompressMemories(stored);
+      }
+    } catch (error) {
+      console.error('Failed to load memories:', error);
+      this.memory = [];
+    }
+  }
+
+  // Rest of the existing methods...
+  async updateTask(id: string, updates: Partial<NovaTask>): Promise<void> {
+    const index = this.tasks.findIndex(t => t.id === id);
+    if (index !== -1) {
+      this.tasks[index] = { ...this.tasks[index], ...updates, updatedAt: Date.now() };
+      await this.saveTasksToStorage();
+      this.emit('taskUpdated', this.tasks[index]);
+    }
+  }
+
   async createTask(task: Omit<NovaTask, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const newTask: NovaTask = {
       ...task,
@@ -113,55 +624,13 @@ class NovaCore {
     await this.saveTasksToStorage();
     this.emit('taskCreated', newTask);
     
-    if (this.config.autonomyLevel === 'autonomous') {
-      this.executeTask(newTask.id);
+    if (this.autonomousMode) {
+      this.autonomousPlanner.scheduleTask(newTask);
     }
     
     return newTask.id;
   }
 
-  async updateTask(id: string, updates: Partial<NovaTask>): Promise<void> {
-    const index = this.tasks.findIndex(t => t.id === id);
-    if (index !== -1) {
-      this.tasks[index] = { ...this.tasks[index], ...updates, updatedAt: Date.now() };
-      await this.saveTasksToStorage();
-      this.emit('taskUpdated', this.tasks[index]);
-    }
-  }
-
-  async executeTask(taskId: string): Promise<void> {
-    const task = this.tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    try {
-      await this.updateTask(taskId, { status: 'in_progress' });
-      
-      // Simulate task execution
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      await this.updateTask(taskId, { 
-        status: 'completed',
-        result: 'Task completed successfully',
-        actualTime: 2000
-      });
-      
-      await this.addMemory({
-        type: 'task',
-        content: `Completed task: ${task.title}`,
-        importance: 5,
-        tags: ['task', 'completed'],
-        metadata: { taskId }
-      });
-      
-    } catch (error) {
-      await this.updateTask(taskId, { 
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  // Plugin Management
   async loadPlugin(plugin: NovaPlugin): Promise<void> {
     const existingIndex = this.plugins.findIndex(p => p.id === plugin.id);
     if (existingIndex !== -1) {
@@ -191,68 +660,6 @@ class NovaCore {
     }
   }
 
-  // Agent Communication
-  async sendToAgent(agentId: string, message: string): Promise<string> {
-    const agent = this.agents.find(a => a.id === agentId);
-    if (!agent) throw new Error(`Agent ${agentId} not found`);
-
-    try {
-      if (agent.type === 'ollama') {
-        return await this.sendToOllama(message, agent.model);
-      } else if (agent.type === 'remote') {
-        return await this.sendToRemoteAgent(agent.endpoint!, message);
-      }
-      return 'Agent communication not implemented';
-    } catch (error) {
-      throw new Error(`Failed to communicate with agent: ${error}`);
-    }
-  }
-
-  private async sendToOllama(message: string, model = 'llama3.1'): Promise<string> {
-    try {
-      const response = await fetch(`${this.config.ollamaEndpoint}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          prompt: message,
-          stream: false,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.response;
-    } catch (error) {
-      throw new Error(`Ollama communication failed: ${error}`);
-    }
-  }
-
-  private async sendToRemoteAgent(endpoint: string, message: string): Promise<string> {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Remote agent error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.response;
-  }
-
-  // System Status
-  private startSystemMonitoring(): void {
-    setInterval(() => {
-      this.updateSystemStatus();
-    }, 5000);
-  }
-
   private async updateSystemStatus(): Promise<void> {
     const status = {
       ...this.systemStatus,
@@ -262,13 +669,11 @@ class NovaCore {
       uptime: this.systemStatus.uptime + 5,
     };
 
-    // Check Ollama connection
+    // Check AI provider status
     try {
-      const response = await fetch(`${this.config.ollamaEndpoint}/api/tags`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000),
-      });
-      status.ollamaStatus = response.ok ? 'connected' : 'error';
+      const providers = await this.aiManager.getAvailableProviders();
+      const ollamaProvider = providers.find(p => p.provider === 'ollama');
+      status.ollamaStatus = ollamaProvider?.available ? 'connected' : 'disconnected';
     } catch {
       status.ollamaStatus = 'disconnected';
     }
@@ -277,38 +682,12 @@ class NovaCore {
     this.emit('statusUpdated', status);
   }
 
-  // Ollama Integration
-  private async checkOllamaConnection(): Promise<void> {
-    try {
-      const response = await fetch(`${this.config.ollamaEndpoint}/api/tags`);
-      if (response.ok) {
-        const data = await response.json();
-        this.systemStatus.ollamaStatus = 'connected';
-        
-        // Initialize Ollama agent
-        await this.addAgent({
-          id: 'ollama-local',
-          name: 'Ollama Local',
-          type: 'ollama',
-          model: this.config.defaultModel,
-          capabilities: ['chat', 'code', 'reasoning'],
-          status: 'online',
-          lastHeartbeat: Date.now(),
-        });
-      }
-    } catch (error) {
-      this.systemStatus.ollamaStatus = 'disconnected';
-      console.warn('Ollama not available:', error);
-    }
-  }
-
   private async initializeAgents(): Promise<void> {
-    // Initialize built-in agents
     await this.addAgent({
       id: 'nova-core',
       name: 'NOVA Core',
       type: 'local',
-      capabilities: ['memory', 'tasks', 'plugins', 'system'],
+      capabilities: ['memory', 'tasks', 'plugins', 'system', 'reasoning'],
       status: 'online',
       lastHeartbeat: Date.now(),
     });
@@ -324,16 +703,8 @@ class NovaCore {
     this.emit('agentAdded', agent);
   }
 
-  // Storage Management
-  private async loadMemoryFromStorage(): Promise<void> {
-    const stored = localStorage.getItem('nova-memory');
-    if (stored) {
-      this.memory = JSON.parse(stored);
-    }
-  }
-
-  private async saveMemoryToStorage(): Promise<void> {
-    localStorage.setItem('nova-memory', JSON.stringify(this.memory));
+  private async saveTasksToStorage(): Promise<void> {
+    localStorage.setItem('nova-tasks', JSON.stringify(this.tasks));
   }
 
   private async loadTasksFromStorage(): Promise<void> {
@@ -343,53 +714,17 @@ class NovaCore {
     }
   }
 
-  private async saveTasksToStorage(): Promise<void> {
-    localStorage.setItem('nova-tasks', JSON.stringify(this.tasks));
+  private async savePluginsToStorage(): Promise<void> {
+    localStorage.setItem('nova-plugins', JSON.stringify(this.plugins));
   }
 
   private async loadPluginsFromStorage(): Promise<void> {
     const stored = localStorage.getItem('nova-plugins');
     if (stored) {
       this.plugins = JSON.parse(stored);
-    } else {
-      // Initialize default plugins
-      this.plugins = [
-        {
-          id: 'code-assistant',
-          name: 'Code Assistant',
-          version: '1.0.0',
-          description: 'Advanced coding assistance and analysis',
-          enabled: true,
-          capabilities: ['code-generation', 'debugging', 'refactoring'],
-          performance: { totalCalls: 0, averageResponseTime: 0, successRate: 1 },
-        },
-        {
-          id: 'research-agent',
-          name: 'Research Agent',
-          version: '1.0.0',
-          description: 'Web research and information gathering',
-          enabled: true,
-          capabilities: ['web-search', 'data-analysis', 'summarization'],
-          performance: { totalCalls: 0, averageResponseTime: 0, successRate: 1 },
-        },
-        {
-          id: 'memory-manager',
-          name: 'Memory Manager',
-          version: '1.0.0',
-          description: 'Advanced memory management and learning',
-          enabled: true,
-          capabilities: ['memory-optimization', 'pattern-recognition', 'learning'],
-          performance: { totalCalls: 0, averageResponseTime: 0, successRate: 1 },
-        },
-      ];
     }
   }
 
-  private async savePluginsToStorage(): Promise<void> {
-    localStorage.setItem('nova-plugins', JSON.stringify(this.plugins));
-  }
-
-  // Event System
   on(event: string, callback: Function): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -404,76 +739,42 @@ class NovaCore {
     }
   }
 
-  // Utility Methods
   private generateId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
 
-  // Public Getters
-  get isReady(): boolean {
-    return this.isInitialized;
-  }
+  // Getters
+  get isReady(): boolean { return this.isInitialized; }
+  get currentConfig(): NovaConfig { return { ...this.config }; }
+  get currentStatus(): NovaSystemStatus { return { ...this.systemStatus }; }
+  get allTasks(): NovaTask[] { return [...this.tasks]; }
+  get allPlugins(): NovaPlugin[] { return [...this.plugins]; }
+  get allAgents(): NovaAgent[] { return [...this.agents]; }
+  get allMemories(): NovaMemory[] { return [...this.memory]; }
+  get isAutonomous(): boolean { return this.autonomousMode; }
 
-  get currentConfig(): NovaConfig {
-    return { ...this.config };
-  }
-
-  get currentStatus(): NovaSystemStatus {
-    return { ...this.systemStatus };
-  }
-
-  get allTasks(): NovaTask[] {
-    return [...this.tasks];
-  }
-
-  get allPlugins(): NovaPlugin[] {
-    return [...this.plugins];
-  }
-
-  get allAgents(): NovaAgent[] {
-    return [...this.agents];
-  }
-
-  get allMemories(): NovaMemory[] {
-    return [...this.memory];
-  }
-
-  // Public Methods
   async updateConfig(updates: Partial<NovaConfig>): Promise<void> {
     this.config = { ...this.config, ...updates };
     localStorage.setItem('nova-config', JSON.stringify(this.config));
     this.emit('configUpdated', this.config);
   }
 
-  async processCommand(command: string): Promise<string> {
-    await this.addMemory({
-      type: 'interaction',
-      content: `User command: ${command}`,
-      importance: 5,
-      tags: ['command', 'user-input'],
-    });
-
-    // Process command through available agents
-    if (this.systemStatus.ollamaStatus === 'connected') {
-      const response = await this.sendToAgent('ollama-local', command);
-      
-      await this.addMemory({
-        type: 'interaction',
-        content: `NOVA response: ${response}`,
-        importance: 5,
-        tags: ['response', 'ollama'],
-      });
-      
-      return response;
-    }
-
-    return 'NOVA system online. Ollama connection required for advanced processing.';
-  }
-
   async shutdown(): Promise<void> {
+    if (this.thinkingInterval) {
+      clearInterval(this.thinkingInterval);
+    }
+    
     await this.saveMemoryToStorage();
     await this.saveTasksToStorage();
     await this.savePluginsToStorage();
+    
+    await this.addMemory({
+      type: 'system',
+      content: 'NOVA Core shutting down. All systems saved.',
+      importance: 9,
+      tags: ['system', 'shutdown'],
+    });
+    
     this.emit('shutdown');
   }
 }
