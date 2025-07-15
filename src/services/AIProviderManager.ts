@@ -23,8 +23,14 @@ export class AIProviderManager {
     this.nova = nova;
     this.ollama = new OllamaIntegration(nova);
     this.gemini = new GeminiIntegration();
-    this.debug = import.meta.env.VITE_DEBUG === 'true';
-    this.ollamaOnly = import.meta.env.VITE_OLLAMA_ONLY === 'true';
+    // Use process.env for Node.js, fallback to import.meta.env for Vite/browser
+    this.debug = (typeof process !== 'undefined' && process.env.VITE_DEBUG !== undefined)
+      ? process.env.VITE_DEBUG === 'true'
+      : (typeof import !== 'undefined' && import.meta.env && import.meta.env.VITE_DEBUG === 'true');
+    this.ollamaOnly = (typeof process !== 'undefined' && process.env.VITE_OLLAMA_ONLY !== undefined)
+      ? process.env.VITE_OLLAMA_ONLY === 'true'
+      : (typeof import !== 'undefined' && import.meta.env && import.meta.env.VITE_OLLAMA_ONLY === 'true');
+    console.log('[AIProviderManager] VITE_OLLAMA_ONLY:', this.ollamaOnly, '| VITE_DEBUG:', this.debug);
   }
 
   async initialize(): Promise<void> {
@@ -32,14 +38,12 @@ export class AIProviderManager {
     const ollamaAvailable = await this.ollama.checkConnection();
     const geminiAvailable = await this.gemini.checkConnection();
 
-    if (this.debug) {
-      console.log('[AIProviderManager] Provider Status:', {
-        ollama: ollamaAvailable,
-        gemini: geminiAvailable,
-        serpApi: this.gemini.isSerpApiConfigured(),
-        ollamaOnly: this.ollamaOnly,
-      });
-    }
+    console.log('[AIProviderManager] Provider Status:', {
+      ollama: ollamaAvailable,
+      gemini: geminiAvailable,
+      serpApi: this.gemini.isSerpApiConfigured(),
+      ollamaOnly: this.ollamaOnly,
+    });
 
     // Set preferred provider based on availability and ollamaOnly flag
     if (ollamaAvailable) {
@@ -64,16 +68,18 @@ export class AIProviderManager {
     forceProvider?: AIProvider
   ): Promise<AIResponse> {
     const provider = forceProvider || this.preferredProvider;
-
+    console.log(`[AIProviderManager] processRequest called. Provider: ${provider}, OllamaOnly: ${this.ollamaOnly}`);
     try {
       if (this.ollamaOnly) {
         if (provider !== 'ollama') {
+          console.error('[AIProviderManager] OLLAMA ONLY mode: refusing to use non-Ollama provider.');
           throw new Error('[AIProviderManager] OLLAMA ONLY mode: refusing to use non-Ollama provider.');
         }
         return await this.processWithOllama(input, mode);
       }
       switch (provider) {
         case 'ollama':
+          console.log('[AIProviderManager] Using Ollama for this request.');
           return await this.processWithOllama(input, mode);
         case 'gemini':
           console.warn('[AIProviderManager] Using Gemini as fallback provider.');
@@ -97,6 +103,7 @@ export class AIProviderManager {
             return await this.processWithFallback(input, mode);
           }
         } else {
+          console.error('[AIProviderManager] OLLAMA ONLY mode: Ollama failed, no fallback allowed.');
           throw new Error('[AIProviderManager] OLLAMA ONLY mode: Ollama failed, no fallback allowed.');
         }
       } else if (provider === 'gemini') {
