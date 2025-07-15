@@ -58,7 +58,7 @@ export class OllamaIntegration {
     try {
       const response = await fetch(`${this.endpoint}/api/tags`, {
         method: 'GET',
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(1000)
       });
       
       this.connectionChecked = response.ok;

@@ -99,14 +99,9 @@ export class AIProviderManager {
       if (this.debug) {
         console.error(`${provider} processing failed:`, error);
       }
-      
-      // Try fallback providers
+      // Do not fall back to Gemini if Ollama is selected; only use fallback
       if (provider === 'ollama') {
-        try {
-          return await this.processWithGemini(enhancedInput, mode);
-        } catch (geminiError) {
-          return await this.processWithFallback(enhancedInput, mode);
-        }
+        return await this.processWithFallback(enhancedInput, mode);
       } else if (provider === 'gemini') {
         return await this.processWithFallback(enhancedInput, mode);
       } else {
