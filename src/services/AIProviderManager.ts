@@ -17,12 +17,14 @@ export class AIProviderManager {
   private nova: NovaCore;
   private preferredProvider: AIProvider = 'ollama';
   private debug: boolean;
+  private ollamaOnly: boolean;
 
   constructor(nova: NovaCore) {
     this.nova = nova;
     this.ollama = new OllamaIntegration(nova);
     this.gemini = new GeminiIntegration();
     this.debug = import.meta.env.VITE_DEBUG === 'true';
+    this.ollamaOnly = import.meta.env.VITE_OLLAMA_ONLY === 'true';
   }
 
   async initialize(): Promise<void> {
@@ -31,24 +33,28 @@ export class AIProviderManager {
     const geminiAvailable = await this.gemini.checkConnection();
 
     if (this.debug) {
-      console.log('AI Provider Status:', {
+      console.log('[AIProviderManager] Provider Status:', {
         ollama: ollamaAvailable,
         gemini: geminiAvailable,
         serpApi: this.gemini.isSerpApiConfigured(),
+        ollamaOnly: this.ollamaOnly,
       });
     }
 
-    // Set preferred provider based on availability
+    // Set preferred provider based on availability and ollamaOnly flag
     if (ollamaAvailable) {
       this.preferredProvider = 'ollama';
-    } else if (geminiAvailable) {
+      console.log('[AIProviderManager] Ollama is available and set as the main provider.');
+    } else if (!this.ollamaOnly && geminiAvailable) {
       this.preferredProvider = 'gemini';
+      console.log('[AIProviderManager] Ollama unavailable, Gemini set as fallback provider.');
     } else {
       this.preferredProvider = 'fallback';
+      console.log('[AIProviderManager] No AI providers available, using fallback.');
     }
 
-    if (this.debug) {
-      console.log('Preferred AI provider:', this.preferredProvider);
+    if (this.ollamaOnly && !ollamaAvailable) {
+      console.error('[AIProviderManager] OLLAMA ONLY mode is enabled, but Ollama is not available! No AI responses will be possible.');
     }
   }
 
@@ -60,27 +66,41 @@ export class AIProviderManager {
     const provider = forceProvider || this.preferredProvider;
 
     try {
+      if (this.ollamaOnly) {
+        if (provider !== 'ollama') {
+          throw new Error('[AIProviderManager] OLLAMA ONLY mode: refusing to use non-Ollama provider.');
+        }
+        return await this.processWithOllama(input, mode);
+      }
       switch (provider) {
         case 'ollama':
           return await this.processWithOllama(input, mode);
         case 'gemini':
+          console.warn('[AIProviderManager] Using Gemini as fallback provider.');
           return await this.processWithGemini(input, mode);
         default:
+          console.warn('[AIProviderManager] Using fallback (NOVA core) provider.');
           return await this.processWithFallback(input, mode);
       }
     } catch (error) {
       if (this.debug) {
-        console.error(`${provider} processing failed:`, error);
+        console.error(`[AIProviderManager] ${provider} processing failed:`, error);
       }
-      
       // Try fallback providers
       if (provider === 'ollama') {
-        try {
-          return await this.processWithGemini(input, mode);
-        } catch (geminiError) {
-          return await this.processWithFallback(input, mode);
+        if (!this.ollamaOnly) {
+          try {
+            console.warn('[AIProviderManager] Ollama failed, falling back to Gemini.');
+            return await this.processWithGemini(input, mode);
+          } catch (geminiError) {
+            console.warn('[AIProviderManager] Gemini also failed, falling back to NOVA core.');
+            return await this.processWithFallback(input, mode);
+          }
+        } else {
+          throw new Error('[AIProviderManager] OLLAMA ONLY mode: Ollama failed, no fallback allowed.');
         }
       } else if (provider === 'gemini') {
+        console.warn('[AIProviderManager] Gemini failed, falling back to NOVA core.');
         return await this.processWithFallback(input, mode);
       } else {
         throw error;
