@@ -23,13 +23,9 @@ export class AIProviderManager {
     this.nova = nova;
     this.ollama = new OllamaIntegration(nova);
     this.gemini = new GeminiIntegration();
-    // Use process.env for Node.js, fallback to import.meta.env for Vite/browser
-    this.debug = (typeof process !== 'undefined' && process.env.VITE_DEBUG !== undefined)
-      ? process.env.VITE_DEBUG === 'true'
-      : (typeof import !== 'undefined' && import.meta.env && import.meta.env.VITE_DEBUG === 'true');
-    this.ollamaOnly = (typeof process !== 'undefined' && process.env.VITE_OLLAMA_ONLY !== undefined)
-      ? process.env.VITE_OLLAMA_ONLY === 'true'
-      : (typeof import !== 'undefined' && import.meta.env && import.meta.env.VITE_OLLAMA_ONLY === 'true');
+    // Use process.env for Node.js
+    this.debug = Boolean(process.env.VITE_DEBUG === 'true');
+    this.ollamaOnly = Boolean(process.env.VITE_OLLAMA_ONLY === 'true');
     console.log('[AIProviderManager] VITE_OLLAMA_ONLY:', this.ollamaOnly, '| VITE_DEBUG:', this.debug);
   }
 
@@ -75,6 +71,7 @@ export class AIProviderManager {
           console.error('[AIProviderManager] OLLAMA ONLY mode: refusing to use non-Ollama provider.');
           throw new Error('[AIProviderManager] OLLAMA ONLY mode: refusing to use non-Ollama provider.');
         }
+        console.log('[AIProviderManager] OLLAMA ONLY mode: using Ollama for this request.');
         return await this.processWithOllama(input, mode);
       }
       switch (provider) {
@@ -107,6 +104,10 @@ export class AIProviderManager {
           throw new Error('[AIProviderManager] OLLAMA ONLY mode: Ollama failed, no fallback allowed.');
         }
       } else if (provider === 'gemini') {
+        if (this.ollamaOnly) {
+          console.error('[AIProviderManager] OLLAMA ONLY mode: Gemini fallback attempted, but not allowed.');
+          throw new Error('[AIProviderManager] OLLAMA ONLY mode: Gemini fallback attempted, but not allowed.');
+        }
         console.warn('[AIProviderManager] Gemini failed, falling back to NOVA core.');
         return await this.processWithFallback(input, mode);
       } else {
